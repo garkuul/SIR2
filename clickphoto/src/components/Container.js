@@ -3,13 +3,13 @@ import Login from "./Login";
 import Posts from "./Posts";
 import AppBar from "./AppBar";
 import Register from "./Register";
-import Cookies from 'js-cookie'
+import Cookies from "js-cookie";
 
 class Container extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      user: JSON.parse(localStorage.getItem("user")),
+      user: JSON.parse(localStorage.getItem("user")) || null,
       register: false
     };
   }
@@ -30,10 +30,9 @@ class Container extends Component {
   };
 
   render() {
-    console.log(this.state.user)
+    console.log(this.state.user);
     return (
       <div style={{ marginTop: "120px" }}>
-        
         <AppBar user={this.state.user} logout={this.handleLogout} />
         {!this.state.user && !this.state.register ? (
           <Login

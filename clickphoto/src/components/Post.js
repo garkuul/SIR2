@@ -198,6 +198,7 @@ class RecipeReviewCard extends React.Component {
             <div className="col-2 text-right">
               <Button
                 color="primary"
+                variant="contained"
                 className={classes.button}
                 onClick={this.handleComment.bind(this, post.id_publicacao)}
               >

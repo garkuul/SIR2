@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { withStyles } from "@material-ui/core/styles";
+import { makeStyles } from "@material-ui/core/styles";
 import AppBar from "@material-ui/core/AppBar";
 import Toolbar from "@material-ui/core/Toolbar";
 import Typography from "@material-ui/core/Typography";
@@ -20,12 +21,26 @@ import DialogContent from "@material-ui/core/DialogContent";
 import DialogContentText from "@material-ui/core/DialogContentText";
 import DialogTitle from "@material-ui/core/DialogTitle";
 import ImagesUploader from "react-images-uploader";
+import PersonIcon from "@material-ui/icons/Person";
+import List from "@material-ui/core/List";
+import ListItem from "@material-ui/core/ListItem";
+import ListItemAvatar from "@material-ui/core/ListItemAvatar";
+import ListItemText from "@material-ui/core/ListItemText";
+import { blue } from "@material-ui/core/colors";
 import { connect } from "react-redux";
 import { newpost } from "../actions/postActions";
+import { getUsers, getFollowing, createFollower } from "../actions/userActions";
 import "react-images-uploader/styles.css";
 import "react-images-uploader/font.css";
 import "./Dialog.css";
 import $ from "jquery";
+
+const useStyles = makeStyles({
+  avatar: {
+    backgroundColor: blue[100],
+    color: blue[600]
+  }
+});
 
 const styles = theme => ({
   root: {
@@ -85,19 +100,110 @@ const styles = theme => ({
   }
 });
 
+function DialogSearch(props) {
+  const classes = useStyles();
+  const { onClose, create, ...other } = props;
+
+  function handleClose() {
+    onClose();
+  }
+
+  return (
+    <Dialog
+      onClose={handleClose}
+      aria-labelledby="simple-dialog-title"
+      fullWidth={true}
+      maxWidth={"sm"}
+      {...other}
+    >
+      <DialogTitle id="simple-dialog-title">
+        {"Found " + props.users.length + " result(s)"}
+      </DialogTitle>
+      <List>
+        {props.users.map((user, i) => (
+          <ListItem key={i}>
+            <ListItemAvatar>
+              <Avatar aria-label="Recipe" className={classes.avatar}>
+                {user.username.charAt(0).toUpperCase()}
+              </Avatar>
+            </ListItemAvatar>
+            <ListItemText primary={user.nome} secondary={"@" + user.username} />
+            <Button
+              color="primary"
+              variant="contained"
+              className={classes.button}
+              disabled={props.usersFollowing.find(
+                o => o.username === user.username
+              )}
+              onClick={() => {
+                create(user.id_user);
+              }}
+              hidden={props.userLogged.id_user == user.id_user}
+            >
+              Follow
+            </Button>
+          </ListItem>
+        ))}
+      </List>
+    </Dialog>
+  );
+}
+
 function ButtonAppBar(props) {
   const { classes, user, logout } = props;
   const [open, setOpen] = React.useState(false);
+  const [openSearch, setOpenSearch] = React.useState(false);
   const [description, setDescription] = React.useState("");
+  const [search, setSearch] = React.useState("");
+  const [users, setUsers] = React.useState([]);
+  const [usersFollowing, setUsersFollowing] = React.useState([]);
+
+  useEffect(() => {
+    if (user) {
+      var body = {
+        id_user: user.id_user
+      };
+
+      props.getFollowing(body).then(response => {
+        //if (usersFollowing.length == 0) {
+        setUsersFollowing(response.data);
+        //}
+      });
+    }
+  }, [user]);
+
+  function handleClickOpenSearch() {
+    setOpenSearch(true);
+  }
+
+  const handleCloseSearch = value => {
+    setOpenSearch(false);
+  };
 
   function handleClickOpen() {
     setOpen(true);
   }
 
+  function newFollower(id_seguido) {
+    var body = {
+      id_seguidor: user.id_user,
+      id_seguido: id_seguido
+    };
+
+    props.createFollower(body).then(response => {
+      props.getFollowing(body).then(res => {
+        setUsersFollowing(res.data);
+        window.location.reload();
+      });
+    });
+  }
+
   function handleClose() {
     setOpen(false);
 
-    var namePhoto = Math.random().toString(36).substring(2);
+    var namePhoto = Math.random()
+      .toString(36)
+      .substring(2);
 
     var body = {
       descricao: description,
@@ -108,17 +214,19 @@ function ButtonAppBar(props) {
 
     props.newpost(body).then(response => {
       var input = $("<input>")
-      .attr("type", "hidden")
-      .attr("name", "foto").val(namePhoto);
-    $("#uploadPic").append(input);
-    $("#uploadPic").attr("action", "http://localhost:3001/posts/uploadPostPic");
-    $("#uploadPic").submit();
+        .attr("type", "hidden")
+        .attr("name", "foto")
+        .val(namePhoto);
+      $("#uploadPic").append(input);
+      $("#uploadPic").attr(
+        "action",
+        "http://localhost:3001/posts/uploadPostPic"
+      );
+      $("#uploadPic").submit();
     });
-
-    
   }
 
-  function handleCancel(){
+  function handleCancel() {
     setOpen(false);
   }
 
@@ -164,6 +272,23 @@ function ButtonAppBar(props) {
                 classes={{
                   root: classes.inputRoot,
                   input: classes.inputInput
+                }}
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+                onKeyPress={event => {
+                  if (event.which == 13 || event.keyCode == 13) {
+                    var body = {
+                      texto: event.target.value
+                    };
+                    props.getUsers(body).then(res => {
+                      setUsers(res.data);
+                      handleClickOpenSearch();
+                      setSearch("");
+                    });
+                    return false;
+                  } else {
+                    return true;
+                  }
                 }}
               />
             </div>
@@ -259,6 +384,16 @@ function ButtonAppBar(props) {
           </Button>
         </DialogActions>
       </Dialog>
+      {user ? (
+        <DialogSearch
+          users={users}
+          open={openSearch}
+          onClose={handleCloseSearch}
+          usersFollowing={usersFollowing}
+          create={newFollower}
+          userLogged={user}
+        />
+      ) : null}
     </div>
   );
 }
@@ -267,9 +402,11 @@ ButtonAppBar.propTypes = {
   classes: PropTypes.object.isRequired
 };
 
-
-const mapStateToProps = state => ({});
+const mapStateToProps = state => ({
+  users: state.users.searchUsers,
+  following: state.users.usersFollowing
+});
 export default connect(
   mapStateToProps,
-  { newpost }
+  { getUsers, getFollowing, newpost, createFollower }
 )(withStyles(styles)(ButtonAppBar));
